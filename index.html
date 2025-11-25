@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MaxWallet BD</title>
+    
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Libraries -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <style>
+        :root {
+            --bg: #f3f4f6;
+            --surface: #ffffff;
+            --primary: #00695c;
+            --secondary: #e91e63; /* Pink for Scratch */
+            --accent: #e65100;
+            --text-main: #1f2937;
+            --text-sub: #6b7280;
+            --border: #e5e7eb;
+            --success: #10b981;
+            --pending: #f59e0b;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body {
+            margin: 0; background: var(--bg); color: var(--text-main);
+            font-family: 'Inter', 'Hind Siliguri', sans-serif; padding-bottom: 85px;
+        }
+
+        /* --- HEADER --- */
+        .header {
+            background: var(--surface); padding: 15px 20px;
+            display: flex; justify-content: space-between; align-items: center;
+            position: sticky; top: 0; z-index: 50; border-bottom: 1px solid var(--border);
+        }
+        .user-info { display: flex; align-items: center; gap: 10px; }
+        .avatar { width: 40px; height: 40px; background: #e0f2f1; border-radius: 50%; color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+        .contact-icon { width: 40px; height: 40px; background: #fff3e0; color: var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; cursor: pointer; }
+
+        /* --- BALANCE --- */
+        .balance-card {
+            background: linear-gradient(135deg, #00695c 0%, #004d40 100%);
+            color: white; margin: 20px; padding: 25px; border-radius: 15px;
+            text-align: center; box-shadow: 0 10px 20px rgba(0,77,64,0.3);
+        }
+        .bal-amount { font-size: 2.5rem; font-weight: 700; margin: 5px 0; }
+
+        /* --- GRID --- */
+        .section-title { margin: 20px 20px 15px; font-weight: 700; border-left: 4px solid var(--primary); padding-left: 10px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; padding: 0 20px; }
+        .game-card {
+            background: var(--surface); padding: 20px; border-radius: 12px;
+            text-align: center; border: 1px solid var(--border); position: relative; overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: 0.2s;
+        }
+        .game-card:active { transform: scale(0.97); }
+        .game-card i { font-size: 2rem; margin-bottom: 10px; display: block; }
+        .game-card.locked { opacity: 0.6; background: #f0f0f0; pointer-events: none; }
+        .game-card.locked::after { content: "\f023"; font-family: "Font Awesome 6 Free"; font-weight: 900; position: absolute; top: 10px; right: 10px; color: #999; }
+
+        /* --- TASKS --- */
+        .task-list { padding: 0 20px; display: flex; flex-direction: column; gap: 10px; }
+        .task-card {
+            background: var(--surface); padding: 15px; border-radius: 10px;
+            border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;
+        }
+        .btn-sm { padding: 6px 14px; border-radius: 6px; font-size: 0.8rem; border: none; font-weight: 600; cursor: pointer; }
+        .btn-start { background: var(--primary); color: white; }
+        .btn-wait { background: var(--pending); color: white; }
+        .btn-done { background: var(--success); color: white; }
+
+        /* --- REFER --- */
+        .ref-container { background: var(--surface); margin: 0 20px; padding: 20px; border-radius: 12px; text-align: center; border: 1px solid var(--border); }
+        .ref-box { background: #f8f9fa; padding: 12px; border: 1px dashed #ccc; border-radius: 6px; margin: 15px 0; font-family: monospace; color: var(--primary); word-break: break-all; }
+
+        /* --- WALLET (UPDATED DESIGN) --- */
+        .wallet-container { background: var(--surface); padding: 20px; border-radius: 15px; margin: 0 20px; border: 1px solid var(--border); }
+        .pay-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .pay-opt {
+            border: 1px solid var(--border); padding: 15px; border-radius: 8px;
+            text-align: center; font-weight: 600; cursor: pointer; transition: 0.2s;
+        }
+        .pay-opt.active { border-color: var(--primary); background: #e0f2f1; color: var(--primary); }
+        
+        .input-group { margin-bottom: 15px; text-align: left; }
+        .input-label { font-size: 0.85rem; color: var(--text-sub); margin-bottom: 5px; display: block; }
+        .inp-field {
+            width: 100%; padding: 14px; border: 1px solid var(--border);
+            border-radius: 8px; outline: none; font-family: inherit; font-size: 1rem;
+        }
+        .inp-field:focus { border-color: var(--primary); }
+        .btn-full { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: 700; cursor: pointer; }
+        
+        /* History List */
+        .hist-list { margin-top: 15px; display: flex; flex-direction: column; gap: 8px; max-height: 400px; overflow-y: auto; }
+        .hist-item {
+            background: #fff; border: 1px solid var(--border); padding: 12px;
+            border-radius: 8px; display: flex; justify-content: space-between; align-items: center;
+        }
+        .status-badge { padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; color: white; }
+        .status-badge.Pending { background: var(--pending); }
+        .status-badge.Paid { background: var(--success); }
+        .status-badge.Rejected { background: #ef5350; }
+
+        /* --- CONTACT MODAL --- */
+        .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+        .contact-item { background: #f5f5f5; padding: 15px; border-radius: 10px; text-align: center; cursor: pointer; border: 1px solid #eee; }
+
+        /* --- NAV --- */
+        .nav {
+            position: fixed; bottom: 0; width: 100%; height: 70px;
+            background: var(--surface); border-top: 1px solid var(--border);
+            display: flex; justify-content: space-around; align-items: center; z-index: 100;
+        }
+        .nav-item { text-align: center; color: var(--text-sub); font-size: 0.75rem; transition: 0.2s; }
+        .nav-item i { font-size: 1.4rem; display: block; margin-bottom: 4px; }
+        .nav-item.active { color: var(--primary); transform: translateY(-3px); }
+
+        /* Utils */
+        .page { display: none; animation: fadeIn 0.3s; }
+        .page.active { display: block; }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 2000; display: none; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
+        .modal-box { background: white; width: 90%; max-width: 340px; padding: 25px; border-radius: 15px; position: relative; }
+        .close-icon { position: absolute; top: 15px; right: 15px; cursor: pointer; color: #999; }
+        #loader { position: fixed; inset: 0; background: #fff; z-index: 9999; display: flex; justify-content: center; align-items: center; }
+    </style>
+</head>
+<body>
+
+    <div id="loader"><i class="fas fa-spinner fa-spin fa-2x" style="color:var(--primary)"></i></div>
+
+    <!-- HEADER -->
+    <div class="header">
+        <div class="user-info">
+            <div class="avatar"><i class="fas fa-user"></i></div>
+            <div>
+                <div style="font-weight:700;">Dashboard</div>
+                <div style="font-size:0.75rem; color:var(--text-sub);">ID: <span id="uid-disp">...</span></div>
+            </div>
+        </div>
+        <div class="contact-icon" onclick="openContact()"><i class="fas fa-headset"></i></div>
+    </div>
+
+    <!-- 1. HOME PAGE -->
+    <div id="home" class="page active">
+        <div class="balance-card">
+            <div style="font-size:0.9rem; opacity:0.9;">Total Balance</div>
+            <div class="bal-amount">৳<span id="bal-main">0</span></div>
+            <div style="font-size:0.8rem;">Tap to refresh</div>
+        </div>
+
+        <div class="section-title">Daily Task</div>
+        <div class="grid-2">
+            <div class="game-card" id="card-daily" onclick="playGame('daily')">
+                <i class="fas fa-calendar-check" style="color:#ff9800;"></i>
+                <div>Daily Check</div>
+            </div>
+            <div class="game-card" id="card-spin" onclick="playGame('spin')">
+                <i class="fas fa-dharmachakra" style="color:#00695c;"></i>
+                <div>Lucky Spin</div>
+            </div>
+            <div class="game-card" id="card-scratch" onclick="playGame('scratch')">
+                <i class="fas fa-ticket-alt" style="color:#e91e63;"></i>
+                <div>Scratch Card</div>
+            </div>
+            <div class="game-card" id="card-math" onclick="playGame('math')">
+                <i class="fas fa-calculator" style="color:#1e88e5;"></i>
+                <div>Math Quiz</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. TASKS PAGE -->
+    <div id="tasks" class="page">
+        <div class="section-title" style="margin-top:20px;">All Missions</div>
+        <div id="task-list" class="task-list">
+            <p style="text-align:center; padding:20px;">Loading tasks...</p>
+        </div>
+    </div>
+
+    <!-- 3. REFER PAGE -->
+    <div id="refer" class="page">
+        <div class="section-title" style="margin-top:20px;">Invite Friends</div>
+        
+        <!-- Dynamic Note -->
+        <div style="margin:0 20px 15px; background:#fff3e0; color:#e65100; padding:12px; border-radius:8px; font-size:0.9rem; border-left:3px solid #e65100;">
+            <span id="refer-note">Invite friends and earn bonus!</span>
+        </div>
+
+        <div class="ref-container">
+            <img src="https://cdn-icons-png.flaticon.com/512/3893/3893069.png" width="60" style="margin-bottom:10px;">
+            <h3>Refer Bonus: ৳<span id="ref-bonus-val">...</span></h3>
+            <p style="color:var(--text-sub); font-size:0.9rem;">Total Invites: <b id="ref-count">0</b></p>
+            
+            <div class="ref-box" id="ref-link-txt">Generating link...</div>
+            <button class="btn-full" onclick="copyRef()">Copy Link</button>
+        </div>
+    </div>
+
+    <!-- 4. WALLET PAGE (UPDATED) -->
+    <div id="wallet" class="page">
+        <div class="section-title" style="margin-top:20px;">Withdraw Money</div>
+        
+        <div class="wallet-container">
+            <p style="margin-bottom:10px; font-weight:600;">Select Method</p>
+            <div class="pay-grid" id="pay-methods">
+                <!-- Loaded from JS -->
+            </div>
+
+            <div class="input-group">
+                <label class="input-label">Account Number</label>
+                <input type="number" id="wd-num" class="inp-field" placeholder="01XXXXXXXXX">
+            </div>
+
+            <div class="input-group">
+                <label class="input-label">Amount (Min: <span id="min-wd-txt">500</span>)</label>
+                <input type="number" id="wd-amt" class="inp-field" placeholder="Enter Amount">
+            </div>
+
+            <button class="btn-full" onclick="withdraw()">Confirm Withdraw</button>
+            <button onclick="showHistory()" style="width:100%; padding:15px; background:transparent; border:1px solid #ccc; border-radius:8px; margin-top:10px; color:#555; cursor:pointer;">View History</button>
+        </div>
+    </div>
+
+    <!-- HISTORY MODAL (FIXED) -->
+    <div id="modal-history" class="modal">
+        <div class="modal-box">
+            <i class="fas fa-times close-icon" onclick="closeModals()"></i>
+            <h3>Transaction History</h3>
+            <div id="hist-content" class="hist-list">
+                Loading...
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTACT MODAL -->
+    <div id="modal-contact" class="modal">
+        <div class="modal-box">
+            <i class="fas fa-times close-icon" onclick="closeModals()"></i>
+            <h3>Contact Us</h3>
+            <div class="contact-grid">
+                <div class="contact-item" onclick="openLink('tg')"><i class="fab fa-telegram" style="color:#0088cc;"></i> Telegram</div>
+                <div class="contact-item" onclick="openLink('wa')"><i class="fab fa-whatsapp" style="color:#25d366;"></i> WhatsApp</div>
+                <div class="contact-item" onclick="openLink('fb')"><i class="fab fa-facebook" style="color:#1877f2;"></i> Facebook</div>
+                <div class="contact-item" onclick="openLink('email')"><i class="fas fa-envelope" style="color:#db4437;"></i> Email</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- GAME MODALS -->
+    <div id="modal-spin" class="modal">
+        <div class="modal-box" style="text-align:center;">
+            <h3>Lucky Wheel</h3>
+            <div style="width:200px; height:200px; background:conic-gradient(red, blue, green, yellow, purple, orange); border-radius:50%; margin:20px auto; border:5px solid white; transition: 3s;" id="wheel"></div>
+            <button class="btn-full" onclick="doSpin()">Spin Now</button>
+            <button onclick="closeModals()" style="margin-top:10px; background:transparent; border:none; color:red;">Close</button>
+        </div>
+    </div>
+    
+    <div id="modal-scratch" class="modal">
+        <div class="modal-box" style="text-align:center;">
+            <h3>Scratch Card</h3>
+            <div style="position:relative; width:100%; height:150px; margin:15px 0; border:1px solid #ccc;">
+                <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:2rem; font-weight:bold; color:var(--primary);">৳<span id="scratch-val">0</span></div>
+                <canvas id="scratch-c" width="280" height="150" style="position:relative; z-index:2; cursor:pointer;"></canvas>
+            </div>
+            <button onclick="closeModals()" class="btn-full" style="background:#ddd; color:#333;">Close</button>
+        </div>
+    </div>
+
+    <!-- NAV -->
+    <div class="nav">
+        <div class="nav-item active" onclick="nav('home', this)"><i class="fas fa-home"></i>Home</div>
+        <div class="nav-item" onclick="nav('tasks', this)"><i class="fas fa-list-check"></i>Tasks</div>
+        <div class="nav-item" onclick="nav('refer', this)"><i class="fas fa-user-plus"></i>Refer</div>
+        <div class="nav-item" onclick="nav('wallet', this)"><i class="fas fa-wallet"></i>Wallet</div>
+    </div>
+
+    <script>
+        // CONFIG
+        const BOT_USERNAME = 'incomett_bot';
+        const BOT_TOKEN = '8533486410:AAGyHpsDmb5QYobhzxOAcFOXV1oNpJt7dno';
+        const ADMIN_ID = '6150627881';
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyD1ccfsQq-7BGqvsA8lJBMtiBaBAM51sf4",
+            authDomain: "cx-incombidity.firebaseapp.com",
+            databaseURL: "https://cx-incombidity-default-rtdb.firebaseio.com",
+            projectId: "cx-incombidity",
+            storageBucket: "cx-incombidity.firebasestorage.app",
+            messagingSenderId: "688804165190",
+            appId: "1:688804165190:web:924d5eeefb2b59c17e7c47"
+        };
+
+        let app, db, uid = null;
+        let selectedPay = 'Bkash';
+        const tg = window.Telegram.WebApp;
+        
+        // Defaults
+        let settings = { 
+            referBonus: 120, 
+            referNote: "Invite your friends and earn instant bonus!",
+            minWithdraw: 500,
+            limits: { spin: 10, scratch: 15, math: 5, daily: 25 },
+            methods: { m1:'Bkash Personal', m2:'Nagad Personal' },
+            contact: { tg:'https://t.me/yourid' }
+        };
+
+        window.onload = function() {
+            setTimeout(() => document.getElementById('loader').style.display = 'none', 1500);
+            try {
+                app = firebase.initializeApp(firebaseConfig);
+                db = firebase.database();
+                
+                // Sync Settings
+                db.ref('settings').on('value', snap => {
+                    if(snap.exists()) {
+                        const s = snap.val();
+                        if(s.referBonus) settings.referBonus = s.referBonus;
+                        if(s.referNote) settings.referNote = s.referNote;
+                        if(s.minWithdraw) settings.minWithdraw = s.minWithdraw;
+                        if(s.limits) settings.limits = s.limits;
+                        if(s.methods) settings.methods = s.methods;
+                        if(s.contact) settings.contact = s.contact;
+                        updateUI();
+                    }
+                });
+
+                // Auth
+                const storedUid = localStorage.getItem('app_uid');
+                if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+                    uid = tg.initDataUnsafe.user.id.toString();
+                    checkRegister(uid, tg.initDataUnsafe.start_param);
+                } else if (storedUid) {
+                    uid = storedUid;
+                    initUser();
+                } else {
+                    login();
+                }
+                
+                setInterval(checkTasks, 2000);
+
+            } catch(e) { console.error(e); }
+        };
+
+        function updateUI() {
+            document.getElementById('ref-bonus-val').innerText = settings.referBonus;
+            document.getElementById('refer-note').innerText = settings.referNote;
+            document.getElementById('min-wd-txt').innerText = settings.minWithdraw;
+            
+            // Render Methods
+            const c = document.getElementById('pay-methods');
+            c.innerHTML = '';
+            let first = true;
+            for(const [k, name] of Object.entries(settings.methods)) {
+                c.innerHTML += `<div class="pay-opt ${first?'active':''}" onclick="selPay('${name}', this)">${name}</div>`;
+                if(first) { selectedPay = name; first=false; }
+            }
+        }
+
+        function login() {
+            Swal.fire({title:'Login', input:'text', placeholder:'User ID', allowOutsideClick:false}).then(r=>{
+                if(r.value) { uid=r.value; localStorage.setItem('app_uid', uid); initUser(); }
+            });
+        }
+
+        function checkRegister(userId, refId) {
+            localStorage.setItem('app_uid', userId);
+            uid = userId;
+            db.ref(`users/${userId}`).once('value', s => {
+                if(!s.exists()) {
+                    let d = { balance:0, joined:Date.now() };
+                    if(refId && refId!==userId) {
+                        d.referredBy = refId;
+                        db.ref(`users/${refId}`).transaction(u => {
+                            if(u) { u.balance=(u.balance||0)+settings.referBonus; u.refCount=(u.refCount||0)+1; }
+                            return u;
+                        });
+                    }
+                    db.ref(`users/${userId}`).set(d);
+                }
+                initUser();
+            });
+        }
+
+        function initUser() {
+            document.getElementById('uid-disp').innerText = uid;
+            document.getElementById('ref-link-txt').innerText = `https://t.me/${BOT_USERNAME}?start=${uid}`;
+            db.ref(`users/${uid}`).on('value', s => {
+                const d = s.val() || {};
+                document.getElementById('bal-main').innerText = d.balance || 0;
+                document.getElementById('ref-count').innerText = d.refCount || 0;
+            });
+            loadTasks();
+            updateLocks();
+        }
+
+        // --- FIXED REFERRAL COPY (Universal) ---
+        function copyRef() {
+            const text = document.getElementById('ref-link-txt').innerText;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    Swal.fire({toast:true, position:'top', icon:'success', title:'Link Copied!'});
+                }).catch(() => fallbackCopy(text));
+            } else {
+                fallbackCopy(text);
+            }
+        }
+
+        function fallbackCopy(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed"; 
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                Swal.fire({toast:true, position:'top', icon:'success', title:'Link Copied!'});
+            } catch (err) {
+                Swal.fire({toast:true, position:'top', icon:'error', title:'Manual Copy Required'});
+            }
+            document.body.removeChild(textArea);
+        }
+
+        // --- CONTACT ---
+        function openContact() { document.getElementById('modal-contact').style.display='flex'; }
+        function openLink(type) {
+            const url = settings.contact[type];
+            if(url) window.open(url, '_blank');
+            else Swal.fire({toast:true, icon:'error', title:'Not Available'});
+        }
+
+        // --- FIXED HISTORY ---
+        function showHistory() {
+            document.getElementById('modal-history').style.display='flex';
+            const c = document.getElementById('hist-content');
+            c.innerHTML = '<p style="text-align:center">Loading...</p>';
+            
+            // Fetch all withdrawals (Robust Method)
+            db.ref('withdrawals').orderByChild('time').limitToLast(100).once('value', snapshot => {
+                const history = [];
+                snapshot.forEach(child => {
+                    const data = child.val();
+                    if(data.uid === uid) {
+                        history.push(data);
+                    }
+                });
+                
+                if(history.length === 0) {
+                    c.innerHTML = '<p style="text-align:center; color:#999; margin-top:20px;">No transaction history found.</p>';
+                } else {
+                    c.innerHTML = '';
+                    // Sort descending (Newest first)
+                    history.reverse().forEach(w => {
+                        const date = new Date(w.time).toLocaleDateString();
+                        c.innerHTML += `
+                        <div class="hist-item">
+                            <div>
+                                <div style="font-weight:600">${w.method}</div>
+                                <div style="font-size:0.75rem; color:#666">${date} | ৳${w.amount}</div>
+                                <div style="font-size:0.7rem; color:#999">TRX: ${w.trx || 'Pending'}</div>
+                            </div>
+                            <span class="status-badge ${w.status}">${w.status}</span>
+                        </div>`;
+                    });
+                }
+            });
+        }
+
+        // --- WALLET ---
+        function selPay(n, e) {
+            selectedPay = n;
+            document.querySelectorAll('.pay-opt').forEach(x=>x.classList.remove('active'));
+            e.classList.add('active');
+        }
+        function withdraw() {
+            const n = document.getElementById('wd-num').value;
+            const a = parseInt(document.getElementById('wd-amt').value);
+            if(!n || !a) return Swal.fire({icon:'warning', title:'Input Missing'});
+            if(a < settings.minWithdraw) return Swal.fire({icon:'error', title:`Minimum: ৳${settings.minWithdraw}`});
+            
+            db.ref(`users/${uid}`).once('value', s => {
+                const u = s.val();
+                if(u.balance >= a) {
+                    db.ref(`users/${uid}`).update({balance: u.balance-a});
+                    const trx = 'TRX' + Math.floor(Date.now() + Math.random()*1000).toString().substr(-8);
+                    
+                    // Push to history
+                    db.ref('withdrawals').push({
+                        uid: uid, amount: a, method: selectedPay, number: n, status: 'Pending', trx: trx, time: Date.now()
+                    });
+
+                    // Telegram Admin Msg
+                    const age = Math.floor((Date.now() - u.joined)/(1000*60*60*24));
+                    const msg = `
+💸 <b>NEW WITHDRAWAL</b>
+🆔 <b>User:</b> <code>${uid}</code>
+💰 <b>Amount:</b> ৳${a}
+🏦 <b>Method:</b> ${selectedPay}
+📞 <b>Number:</b> <code>${n}</code>
+⏳ <b>Acc Age:</b> ${age} days
+🔖 <b>TRX:</b> <code>${trx}</code>`;
+
+                    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+                        method:'POST', headers:{'Content-Type':'application/json'},
+                        body:JSON.stringify({chat_id:ADMIN_ID, text:msg, parse_mode:'HTML'})
+                    });
+
+                    Swal.fire({icon:'success', title:'Success', text:`Request Submitted. TRX: ${trx}`});
+                } else {
+                    Swal.fire({icon:'error', title:'Insufficient Balance'});
+                }
+            });
+        }
+
+        // --- GAMES (1 TIME LIMIT) ---
+        function updateLocks() {
+            const t = new Date().toDateString();
+            ['spin','scratch','math','daily'].forEach(k => {
+                if(localStorage.getItem(`l_${k}_${uid}`) === t) document.getElementById(`card-${k}`).classList.add('locked');
+            });
+        }
+        function playGame(k) {
+            const t = new Date().toDateString();
+            if(localStorage.getItem(`l_${k}_${uid}`) === t) return Swal.fire({icon:'warning', title:'Completed', text:'Try again tomorrow!'});
+            
+            if(k==='daily') {
+                addMoney(settings.limits.daily);
+                localStorage.setItem(`l_daily_${uid}`, t); updateLocks();
+                Swal.fire({icon:'success', title:'Daily Bonus', text:`+৳${settings.limits.daily}`});
+            } else if(k==='spin') document.getElementById('modal-spin').style.display='flex';
+            else if(k==='scratch') { document.getElementById('modal-scratch').style.display='flex'; initScratch(); }
+            else if(k==='math') playMath();
+        }
+
+        function doSpin() {
+            const w = document.getElementById('wheel');
+            w.style.transform = `rotate(${3000+Math.random()*2000}deg)`;
+            setTimeout(()=>{
+                const r = Math.floor(Math.random()*settings.limits.spin)+1;
+                addMoney(r); localStorage.setItem(`l_spin_${uid}`, new Date().toDateString()); updateLocks(); closeModals();
+                Swal.fire({icon:'success', title:`+৳${r}`});
+            }, 3000);
+        }
+
+        function initScratch() {
+            const c=document.getElementById('scratch-c'); const ctx=c.getContext('2d');
+            ctx.fillStyle='#999'; ctx.fillRect(0,0,280,150);
+            const r = Math.floor(Math.random()*settings.limits.scratch)+1;
+            document.getElementById('scratch-val').innerText=r;
+            let s=0, d=false;
+            const h=(e)=>{
+                if(d)return; const rect=c.getBoundingClientRect();
+                const x=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
+                const y=(e.touches?e.touches[0].clientY:e.clientY)-rect.top;
+                ctx.globalCompositeOperation='destination-out'; ctx.beginPath(); ctx.arc(x,y,20,0,Math.PI*2); ctx.fill();
+                s++; if(s>40){d=true; setTimeout(()=>{ addMoney(r); localStorage.setItem(`l_scratch_${uid}`, new Date().toDateString()); updateLocks(); closeModals(); Swal.fire({icon:'success', title:`+৳${r}`}); },500); }
+            }; c.onmousemove=e=>{if(e.buttons)h(e)}; c.ontouchmove=h;
+        }
+
+        function playMath() {
+            const a=Math.floor(Math.random()*10), b=Math.floor(Math.random()*10);
+            Swal.fire({title:`${a} + ${b} = ?`, input:'number'}).then(r=>{
+                if(parseInt(r.value)===(a+b)) {
+                    addMoney(settings.limits.math); localStorage.setItem(`l_math_${uid}`, new Date().toDateString()); updateLocks();
+                    Swal.fire({icon:'success', title:'Correct!'});
+                } else Swal.fire({icon:'error', title:'Wrong'});
+            });
+        }
+
+        // --- TASKS ---
+        function loadTasks() {
+            const c = document.getElementById('task-list');
+            db.ref('tasks').on('value', s => {
+                if(!s.exists()) { c.innerHTML='<p style="text-align:center">No tasks</p>'; return; }
+                c.innerHTML='';
+                s.forEach(ch => {
+                    const t = ch.val(); const k = ch.key;
+                    const d = localStorage.getItem(`d_${k}_${uid}`);
+                    const p = localStorage.getItem(`p_${k}_${uid}`);
+                    let btn = `<button class="btn-sm btn-start" onclick="startTask('${k}','${t.link}',${t.reward})">Start</button>`;
+                    if(d) btn = `<button class="btn-sm btn-done">Done</button>`;
+                    else if(p) btn = `<button class="btn-sm btn-wait">Check</button>`;
+                    
+                    c.innerHTML += `
+                    <div class="task-card">
+                        <div>
+                            <div style="font-weight:600">${t.title}</div>
+                            <div style="color:var(--success); font-size:0.85rem">+৳${t.reward}</div>
+                        </div>
+                        ${btn}
+                    </div>`;
+                });
+            });
+        }
+        function startTask(k, l, r) {
+            window.open(l, '_blank');
+            localStorage.setItem(`p_${k}_${uid}`, Date.now());
+            localStorage.setItem(`r_${k}`, r);
+            loadTasks();
+            Swal.fire({toast:true, position:'top', icon:'info', title:'Task Started'});
+        }
+        function checkTasks() {
+            if(!uid) return;
+            for(let i=0; i<localStorage.length; i++){
+                const k = localStorage.key(i);
+                if(k.startsWith('p_') && k.includes(uid)) {
+                    const s = parseInt(localStorage.getItem(k));
+                    const id = k.split('_')[1];
+                    if(Date.now()-s > 10000) {
+                        const r = parseInt(localStorage.getItem(`r_${id}`));
+                        localStorage.removeItem(k); localStorage.removeItem(`r_${id}`);
+                        localStorage.setItem(`d_${id}_${uid}`, '1');
+                        addMoney(r); loadTasks();
+                        Swal.fire({toast:true, position:'top', icon:'success', title:`+৳${r} Added`});
+                    }
+                }
+            }
+        }
+
+        // UTILS
+        function addMoney(n) { if(uid) db.ref(`users/${uid}/balance`).set(firebase.database.ServerValue.increment(n)); }
+        window.closeModals = () => document.querySelectorAll('.modal').forEach(m=>m.style.display='none');
+        function nav(p, e) { document.querySelectorAll('.page').forEach(x=>x.classList.remove('active')); document.getElementById(p).classList.add('active'); document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active')); e.classList.add('active'); }
+
+    </script>
+</body>
+</html>
